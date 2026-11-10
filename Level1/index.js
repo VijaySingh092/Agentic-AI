@@ -11,6 +11,8 @@ const ai = new GoogleGenAI({
     apiKey:process.env.GEMINI_API_KEY
 });
 
+
+// default ouput
 const main = async()=>{
    
     const interaction = await ai.interactions.create({
@@ -20,6 +22,19 @@ const main = async()=>{
 console.log(interaction.output_text);
 }
 main()
+
+
+//  Stream output
+
+// const stream = await ai.interactions.create({
+//   model: "gemini-3.8-flash",
+//   input: "Explain how AI works",
+//   stream: true,
+// });
+
+// for await (const event of stream) {
+//   console.log(event);
+// }
 
 app.listen(PORT,()=>{
     console.log(`server is running on PORT ${PORT}`)
