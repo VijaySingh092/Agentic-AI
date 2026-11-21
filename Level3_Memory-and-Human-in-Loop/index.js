@@ -7,6 +7,8 @@ import { tool, createAgent } from "langchain"
 import z from 'zod'
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { MessagesAnnotation, StateGraph, MemorySaver } from "@langchain/langgraph";
+import { MongoClient } from "mongodb";
+import { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
 
 const app = express()
 
@@ -34,7 +36,17 @@ const tool2 = tool(
 
 const port = process.env.PORT || 5000
 
-const checkpointer = new MemorySaver()
+// for local memory saver
+// const checkpointer = new MemorySaver()
+
+
+// checkpointer backed by database
+
+const client = new MongoClient(process.env.MONGO_URI)
+
+const checkpointer = new MongoDBSaver({ client });
+
+
 
 const tools =[tool1, tool2] // tools array
 
