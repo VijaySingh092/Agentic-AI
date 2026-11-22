@@ -3,7 +3,6 @@ import dotenv from 'dotenv'
 dotenv.config()
 import * as z from "zod"
 import { tool } from "langchain"
-import { TavilySearch } from "@langchain/tavily";
 import { ChatGoogle } from "@langchain/google";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { interrupt, StateGraph, StateSchema } from '@langchain/langgraph'
@@ -74,8 +73,16 @@ const approvalNode = async(state)=>{
     }
 }
 
+// action node
 const actionNode  = async(state)=>{
-
+    if(state.approved){
+        return{
+            result:`action approved ${state.aiResponse}`
+        }
+    }
+    return {
+        result:"action rejected by human"
+    }
 }
 
 const shouldContinue= async(state)=>{
