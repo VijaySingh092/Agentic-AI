@@ -6,7 +6,7 @@ import { tool } from "langchain"
 import { TavilySearch } from "@langchain/tavily";
 import { ChatGoogle } from "@langchain/google";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { MessagesAnnotation, StateGraph, StateSchema } from '@langchain/langgraph'
+import { StateGraph, StateSchema } from '@langchain/langgraph'
 import { MongoClient } from "mongodb";
 import { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
 
@@ -36,12 +36,30 @@ const customState = new StateSchema({
 
 // agentNode : calls model
 const agent = async (state)=>{                
-   const result = await model.invoke(
-    state.messages
-   )
-   return {
-    messages:[result]
-   }
+   const result = await model.invoke([
+    {
+        role:"system",
+        content:`You are a helpful assisstant.
+        If the user is greeting or asking a normal question, responsd normally and set approvalRequires to false.
+        If the request requires a sensitive external action, such as sending an email or deleting a file, set approvalRequires to true. 
+        Return JSON with: 
+        {
+        "response":"your response",
+        "approvalRequires": true or false
+        }`
+    },
+    {
+        role:"user",
+        content:state.prompt
+    }
+   ])
+
+   const parsed = JSON.parse(result.content)
+
+    return {
+        aiResponse:parsed.response,
+        approvalRequires:parsed.approvalRequires
+    }
 }  
 
 const approvalNode = async(state)=>{
