@@ -14,10 +14,13 @@ const app = express()
 
 app.use(express.json())
 
+
+//  build in tool serch tool
 const tool1 = new TavilySearch({
   maxResults: 5,
   topic: "general",
 });
+
 
 const tool2 = tool(
     ({a,b})=>{
@@ -47,12 +50,14 @@ const client = new MongoClient(process.env.MONGO_URI)
 const checkpointer = new MongoDBSaver({ client });
 
 
+// create tools array
+const tools =[tool1, tool2] 
 
-const tools =[tool1, tool2] // tools array
-
+ // set model and bind Tools
 const model = new ChatGoogle("gemini-3.5-flash-lite").bindTools(tools)
 
-const toolNode = new ToolNode(tools)  // ToolNode
+// create toolNode = responsible for executing the tool calls
+const toolNode = new ToolNode(tools)
 
 
 // state=[
@@ -62,20 +67,23 @@ const toolNode = new ToolNode(tools)  // ToolNode
 //     AiMessages:""
 // ]
 
-const agent = async (state)=>{                // agentNode : calls model
+// agentNode : calls model
+const agent = async (state)=>{                
    const result = await model.invoke(
     state.messages
    )
-
    return {
     messages:[result]
    }
-
 }  
 
 const shouldContinue=(state)=>{
     console.log(state)
-    if(state.messages[state.messages.length-1].tool_calls.length>0){
+
+    // Gets the latest message from the conversation.Because Gemini's latest response determines what should happen next.
+    const lastMessage = state.messages[state.messages.length - 1];
+
+    if( lastMessage .tool_calls.length>0){   // Checks whether Gemini has requested any tools
         return "tool_node"
     }else{
         return "_end_"
@@ -84,11 +92,13 @@ const shouldContinue=(state)=>{
 
 
 // create graph  with build-in state
+// MessagesAnnotation is a predefined state structure provided by LangGraph that manages conversation messages in your graph.
+
 const graph = new StateGraph(MessagesAnnotation)
 .addNode("agent",agent)
 .addNode("tool_node",toolNode)
 .addEdge("__start__","agent")
-.addConditionalEdges("agent",shouldContinue)
+.addConditionalEdges("agent",shouldContinue) // After the agent node finishes executing, call the shouldContinue function
 .addEdge("tool_node","agent")
 .compile({checkpointer})
 
