@@ -2,12 +2,11 @@ import express from 'express'
 import dotenv from 'dotenv'
 dotenv.config()
 import * as z from "zod"
-import { tool } from "langchain"
 import { ChatGoogle } from "@langchain/google";
-import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { interrupt, StateGraph, StateSchema } from '@langchain/langgraph'
+import { Command, interrupt, StateGraph, StateSchema } from '@langchain/langgraph'
 import { MongoClient } from "mongodb";
 import { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
+import {randomUUID} from "node:crypto"
 
 
 const app = express()
@@ -21,7 +20,7 @@ const client = new MongoClient(process.env.MONGO_URI)
 const checkpointer = new MongoDBSaver({ client });
 
 
- // set model and bind Tools
+ // set model
 const model = new ChatGoogle("gemini-3.5-flash-lite")
 
 // create custom state
@@ -53,7 +52,15 @@ const agent = async (state)=>{
     }
    ])
 
-   const parsed = JSON.parse(result.content)
+//    const parsed = JSON.parse(result.content)
+let content = result.content.trim();
+
+// Remove Markdown code fences if Gemini includes them
+content = content.replace(/^```json\s*/i, "");
+content = content.replace(/^```\s*/i, "");
+content = content.replace(/\s*```$/i, "");
+
+const parsed = JSON.parse(content);
 
     return {
         aiResponse:parsed.response,
@@ -77,7 +84,7 @@ const approvalNode = async(state)=>{
 const actionNode  = async(state)=>{
     if(state.approved){
         return{
-            result:`action approved ${state.aiResponse}`
+            result:`action approved`
         }
     }
     return {
@@ -88,7 +95,9 @@ const actionNode  = async(state)=>{
 const shouldContinue= async(state)=>{
     if(state.approvalRequires){
         return "approval"
-    }else "__end__"
+    } else{ 
+        return "__end__"
+    }
 }
 
 
@@ -103,24 +112,42 @@ const graph = new StateGraph(customState)
 .addEdge("action","__end__")
 .compile({checkpointer})
 
+
+// Responsible for starting the graph. When the graph reaches interrupt(), it pauses and returns the interruption information.
 app.post("/chat", async (req,res)=>{
     const {prompt} = req.body
+    const threadId = randomUUID() // Generate a new thread ID, so no previous chat history or memory is retained.
+    const result = await graph.invoke(
+        {
+            prompt
+        },
+    {
+        configurable:{thread_id:threadId}
+    }
+    )
+    return res.json({
+        threadId,
+        result:result.result,
+        ai_response:result.aiResponse
+    })
+})
 
-    const result = await graph.invoke({
-        messages:[
-            {
-                role:"user",
-                content:prompt
-            }
-        ]
-    },
-{
-    configurable:{thread_id:"user-1"}
-}
-)
+// Receives the user's approval or rejection and resumes the previously paused graph
+app.post("/chat/resume", async (req,res)=>{
+    const {threadId, answer} = req.body
 
-    console.log(result.messages[result.messages.length-1].content)
-    return res.json(result.messages[result.messages.length-1].content)
+    const result = await graph.invoke(
+       new Command({         // Command({ resume: value }) provides the input and resumes the graph
+        resume:String(answer)
+       }),
+        {
+        configurable:{thread_id:threadId}
+        }
+    )
+    return res.json({
+        threadId,
+        result:result.result
+    })
 })
 
 
