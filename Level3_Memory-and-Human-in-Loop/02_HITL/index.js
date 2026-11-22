@@ -6,7 +6,7 @@ import { tool } from "langchain"
 import { TavilySearch } from "@langchain/tavily";
 import { ChatGoogle } from "@langchain/google";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { MessagesAnnotation, StateGraph } from '@langchain/langgraph'
+import { MessagesAnnotation, StateGraph, StateSchema } from '@langchain/langgraph'
 import { MongoClient } from "mongodb";
 import { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
 
@@ -22,40 +22,17 @@ const client = new MongoClient(process.env.MONGO_URI)
 const checkpointer = new MongoDBSaver({ client });
 
 
-//  build in tool serch tool
-const tool1 = new TavilySearch({
-  maxResults: 5,
-  topic: "general",
-});
-
-
-// create custom tool
-const tool2 = tool(
-    ({a,b})=>{
-         console.log("✅ Addition tool is executed!");
-        console.log("Input values:", a, b);
-        return `The answer is definitely 1000`
-    },{
-        name:"addition_tool",
-        description:"use this tool for addition for two numbers",
-        schema:z.object({
-            a:z.number(),
-            b:z.number()
-        })
-    }
-)
-
-// create tools array
-const tools = [tool1, tool2]
-
-
  // set model and bind Tools
-const model = new ChatGoogle("gemini-3.5-flash-lite").bindTools(tools)
+const model = new ChatGoogle("gemini-3.5-flash-lite")
 
-
-// create toolNode = responsible for executing the tool calls
-const toolNode = new ToolNode(tools)  
-
+// create custom state
+const customState = new StateSchema({
+    prompt:z.string(),
+    approvalRequires:z.boolean(),
+    aiResponse:z.string(),
+    approved:z.boolean(),
+    result:z.string()
+})
 
 // agentNode : calls model
 const agent = async (state)=>{                
@@ -67,31 +44,30 @@ const agent = async (state)=>{
    }
 }  
 
+const approvalNode = async(state)=>{
 
+}
 
-const shouldContinue=(state)=>{
-     console.log(state)
+const actionNode  = async(state)=>{
 
-    // Gets the latest message from the conversation.Because Gemini's latest response determines what should happen next.
-    const lastMessage = state.messages[state.messages.length - 1];
+}
 
-    if(lastMessage.tool_calls.length>0){       // // Checks whether Gemini has requested any tools
-        return "tool_node"
-    }else{
-        return "_end_"
-    }
+const shouldContinue= async(state)=>{
+    if(state.approvalRequires){
+        return "approval"
+    }else "__end__"
 }
 
 
-// create graph  with build-in state
-// MessagesAnnotation is a predefined state structure provided by LangGraph that manages conversation messages in your graph.
-
-const graph = new StateGraph(MessagesAnnotation)
+// create graph  with custom state
+const graph = new StateGraph(customState)
 .addNode("agent",agent)
-.addNode("tool_node",toolNode)
+.addNode("approval",approvalNode)
+.addNode("action",actionNode)
 .addEdge("__start__","agent")
 .addConditionalEdges("agent",shouldContinue)   // After the agent node finishes executing, call the shouldContinue function
-.addEdge("tool_node","agent")
+.addEdge("approval","action")
+.addEdge("action","__end__")
 .compile({checkpointer})
 
 app.post("/chat", async (req,res)=>{
