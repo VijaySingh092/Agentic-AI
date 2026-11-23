@@ -17,8 +17,11 @@
     "@langchain/google-genai": "^2.3.7",
     "@langchain/openai": "^1.8.5",
     "@langchain/qdrant": "^1.0.3",
+    "@langchain/textsplitters": "^1.0.2",
     "dotenv": "^18.0.10",
     "express": "^5.3.0",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "pdf-parse": "^2.4.5",
+    "pdf-parser": "^1.0.5"
   }
 }
