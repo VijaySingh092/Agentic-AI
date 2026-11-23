@@ -25,11 +25,11 @@ const embeddings = new GoogleGenerativeAIEmbeddings({
 const vectorStore = await QdrantVectorStore.fromExistingCollection(embeddings, {
   url: process.env.QDRANT_URL,
   apiKey:process.env.QDRANT_API_KEY,
-  collectionName: "mern-notes",
+  collectionName: "synopsis",
 });
 
 const upload = async()=>{
-    const path='./Pro_MERN_Stack_ Full Stack.pdf'
+    const path='./synopsis-interviewAI.pdf'
     const buffer= fs.readFileSync(path)    // buffer stores the PDF's raw binary && readFileSync() reads the complete PDF file.data.  At this stage, Node.js has the PDF's data, but it hasn't extracted the readable text.
     // Creates a PDF parser instance and supplies the Buffer to it
     const pdfResult = new PDFParse({data:buffer})  // Creates a PDF parser instance and supplies the Buffer to it
@@ -39,7 +39,7 @@ const upload = async()=>{
     // takes the extracted PDF text and divides it into smaller pieces called chunks
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 100, chunkOverlap: 1 })  // creating an instance of RecursiveCharacterTextSplitter
     const docs = await splitter.createDocuments([text]) // splits your extracted text into smaller documents.
-    console.log(docs)
+    await vectorStore.addDocuments(docs)  // converts their text into embedding vectors 
 }
 
 upload()
