@@ -10,6 +10,31 @@ const server = new McpServer({
     version:"1.0.0"        // Version of your server
 })
 
+// Registering a tool
+server.registerTool(   //  registers a new tool with the MCP server
+    "addition",   // tool's unique name. MCP client uses this name to identify and call the tool.
+
+    {          // Tool configuration This defines the tool's metadata and input structure
+        description:"for adding two numbers",
+        inputSchema:z.object({
+            a:z.number(),
+            b:z.number()
+        })
+    },
+
+    // Callback function: This is the function executed when the MCP client calls the addition tool.
+    async ({a,b})=>{
+        return {
+            content:[   // Contains the tool's response
+                {
+                    type:"text",   // Specifies that the response is text
+                    text:`sum using this mcp tool is ${a} & ${b} = ${a+b}` // Contains the actual result.
+                }
+            ]
+        }
+    }
+)
+
 // Creating the transport : This creates a communication channel between your MCP server and an MCP client
 const transport = new StdioServerTransport()
 
