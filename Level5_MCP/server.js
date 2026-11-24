@@ -6,7 +6,7 @@ import { z } from "zod";  // Imports Zod, a JavaScript schema validation library
 
 // Creating an MCP server
 const server = new McpServer({
-    title:"calculator",    // Name of your MCP server
+    name:"calculator",    // Name of your MCP server
     version:"1.0.0"        // Version of your server
 })
 
